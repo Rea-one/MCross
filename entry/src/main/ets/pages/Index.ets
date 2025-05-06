@@ -1,32 +1,28 @@
 import { RegANDLog } from './ralpage'
 import { RegPage } from './register'
 import { WaitPage } from './wait'
+import {Linker} from './linker'
+import { Yours } from './yours';
 
 @Entry
 @Component
 struct Index
 {
   @Provide('PageStack') pageStack: NavPathStack = new NavPathStack();
+  @Provide('linker') link: Linker = new Linker()
 
   @Builder
   page_map(name: string)
   {
-    if (name == 'ralPage')
-    {
-      RegANDLog();
-    }
-    else if (name == 'register')
-    {
-      RegPage()
-    }
-    else
-    {
-      WaitPage();
-    }
+    if      (name == 'ralPage')     { RegANDLog() }
+    else if (name == 'register')    { RegPage() }
+    else if (name == 'yours')       { Yours() }
+    else                            { WaitPage(); }
   }
 
   aboutToAppear()
   {
+    this.link.init()
     this.pageStack.pushPathByName('', '');
   }
 
@@ -42,6 +38,7 @@ struct Index
         Button('test')
           .onClick(() =>
           {
+            this.link.connect()
             this.pageStack.pushPathByName('ralPage', '')
           })
       }

@@ -1,47 +1,67 @@
 
+import {Linker, receive} from './linker'
+import {Method} from './task'
+import { promptAction } from '@kit.ArkUI';
+import { socket } from '@kit.NetworkKit';
+
 
 @Component
-export struct RegANDLog
-{
+export struct RegANDLog {
   @State account: string = '';
   @State password: string = '';
+  @Consume('PageStack') PageStack: NavPathStack;
+  @Consume('linker') link: Linker;
+  m: Method = new Method()
 
-  @Consume('PageStack') PageStack:NavPathStack;
-  build()
-  {
-    NavDestination()
-    {
-      Column()
-      {
-        Row()
-        {
-          Text('账号')
-          TextInput({placeholder: '请输入账号'})
-          .onChange((value: string) =>
-          {
-            this.account = value;
-          })
+  build() {
+    NavDestination() {
+      Column() {
+        Row() {
+          Text('账号');
+          TextInput({ placeholder: '请输入账号' })
+            .onChange((value: string) => {
+              this.account = value;
+            });
         }
-        Row()
-        {
-          Text('密码')
-          TextInput({placeholder: '请输入密码'})
-          .onChange((value: string) =>
-          {
-            this.account = value;
-          })
-          .type(InputType.Password);
+
+        Row() {
+          Text('密码');
+          TextInput({ placeholder: '请输入密码' })
+            .onChange((value: string) => {
+              this.account = value;
+            })
+            .type(InputType.Password);
         }
-        Row()
-        {
+
+        Row() {
           Button('注册')
-            .onClick(() =>
-            {
+            .onClick(() => {
               this.PageStack.pushPathByName('register', '')
             });
 
-          Button('登录');
-
+          Button('登录')
+            .onClick(() => {
+              this.link.send(this.m.login(this.account, this.password), (message: socket.SocketMessageInfo) => {
+                let translated: string = ""
+                let storage = new Uint8Array(message.message)
+                for (let order: number = 0; order < message.message.byteLength; order++) {
+                  translated += String.fromCharCode(storage[order])
+                }
+                switch (translated) {
+                  case "login success":
+                    this.PageStack.pushPathByName('yours', '')
+                    this.password = ''
+                    break
+                  case "wrong password or wrong id":
+                    this.getUIContext().getPromptAction().showToast({
+                      message: "账号或密码错误",
+                      duration: 2000,
+                      bottom: 80
+                    })
+                }
+                return "finish"
+              })
+            });
         }
       }
     }
