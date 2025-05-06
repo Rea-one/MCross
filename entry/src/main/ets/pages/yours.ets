@@ -9,29 +9,35 @@ interface Friends
 
 
 @Component
-export struct Yours
-{
+export struct Yours {
   @State friends: Friends[] = []
-  @Consume('PageStack') PageStack:NavPathStack;
-  build()
-  {
-    List()
-    {
-      ForEach(this.friends, (item: Friends, index: number) =>
-      {
-        ListItem()
-        {
-          Row()
-          {
-            Image(item.IconPath)
-            Column()
-            {
-              Text(item.Name)
-              Text(item.PreView)
+  @Consume('PageStack') PageStack: NavPathStack;
+
+  build() {
+    Tabs() {
+      TabContent() {
+        List() {
+          ForEach(this.friends, (item: Friends, index: number) => {
+            ListItem() {
+              Row() {
+                Image(item.IconPath)
+                Column() {
+                  Text(item.Name)
+                  Text(item.PreView)
+                }
+              }
             }
-          }
+          })
         }
-      })
+      }
+      .tabBar("消息")
+      TabContent(){
+        List(){
+
+        }
+      }
+      .tabBar("联系人")
     }
+
   }
 }
