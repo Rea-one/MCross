@@ -1,15 +1,19 @@
 import { distributedKVStore } from '@kit.ArkData';
 import { Content } from '@ohos.arkui.node';
+import { window } from '@kit.ArkUI';
+import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 
-export class storage{
-  store: distributedKVStore.KVManager | undefined = undefined
-  config: distributedKVStore.KVManagerConfig | undefined = undefined
+export class Storage extends UIAbility{
+  store: distributedKVStore.KVManager | null = null
 
-  init(){
-    this.config = {
-      bundleName: 'cn.edu.hit'
+  onCreate(): void {
+    let context = this.context;
+    const config: distributedKVStore.KVManagerConfig = {
+      context: context,
+      bundleName: "cn.edu.hit"
     }
-    this.store = distributedKVStore.createKVManager(this.config)
+    this.store = distributedKVStore.createKVManager(config)
   }
 }

@@ -3,6 +3,7 @@ import { RegPage } from './register'
 import { WaitPage } from './wait'
 import {Linker} from './linker'
 import { Yours } from './yours';
+import { Storage } from './storage'
 
 @Entry
 @Component
@@ -10,6 +11,7 @@ struct Index
 {
   @Provide('PageStack') pageStack: NavPathStack = new NavPathStack();
   @Provide('linker') link: Linker = new Linker()
+  @Provide('store') store: Storage = new Storage()
 
   @Builder
   page_map(name: string)

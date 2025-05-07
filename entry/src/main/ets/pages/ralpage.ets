@@ -3,10 +3,14 @@ import {Linker} from './linker'
 import {Method} from './task'
 import { promptAction } from '@kit.ArkUI';
 import { socket } from '@kit.NetworkKit';
-
+import { Self } from  './yours'
 
 @Component
 export struct RegANDLog {
+  @Provide('self') self: Self = {
+    ID: "",
+    IconPath: ""
+  }
   @State account: string = '';
   @State password: string = '';
   @Consume('PageStack') PageStack: NavPathStack;
@@ -49,6 +53,7 @@ export struct RegANDLog {
                 }
                 switch (translated) {
                   case "login success":
+                    this.self.ID = this.account
                     this.PageStack.pushPathByName('yours', '')
                     this.password = ''
                     break
