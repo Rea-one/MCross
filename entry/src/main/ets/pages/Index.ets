@@ -4,14 +4,19 @@ import { WaitPage } from './wait'
 import {Linker} from './linker'
 import { Yours } from './yours';
 import { Storage } from './storage'
+import { ChatPage } from './chat';
+import { distributedKVStore } from '@kit.ArkData';
 
 @Entry
 @Component
 struct Index
 {
   @Provide('PageStack') pageStack: NavPathStack = new NavPathStack();
-  @Provide('linker') link: Linker = new Linker()
-  @Provide('store') store: Storage = new Storage()
+  @Provide('linker')    link: Linker = new Linker()
+  @Provide('store')     store: Storage = new Storage()
+  @Provide('self')      self_store: distributedKVStore.SingleKVStore | null = null
+  @Provide('friend')    friend_store: distributedKVStore.SingleKVStore | null = null
+  @Provide('message')   message_store: distributedKVStore.SingleKVStore | null = null
 
   @Builder
   page_map(name: string)
@@ -19,6 +24,7 @@ struct Index
     if      (name == 'ralPage')     { RegANDLog() }
     else if (name == 'register')    { RegPage() }
     else if (name == 'yours')       { Yours() }
+    else if (name == 'chat')        { ChatPage() }
     else                            { WaitPage(); }
   }
 
