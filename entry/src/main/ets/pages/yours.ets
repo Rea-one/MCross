@@ -1,4 +1,5 @@
 
+
 interface Friends
 {
   ID: string;
@@ -8,16 +9,24 @@ interface Friends
 }
 
 
+type frd = Map<string, Friends[]>
+
 @Component
 export struct Yours {
-  @State friends: Friends[] = []
+  @State hot_frd: Friends[] = []
+  @State friends: frd = new Map<string, Friends[]>()
+  @State signal: Map<string, boolean> = new Map<string, boolean>()
   @Consume('PageStack') PageStack: NavPathStack;
+
+  aboutToAppear(): void {
+
+  }
 
   build() {
     Tabs() {
       TabContent() {
         List() {
-          ForEach(this.friends, (item: Friends, index: number) => {
+          ForEach(this.hot_frd, (item: Friends, index: number) => {
             ListItem() {
               Row() {
                 Image(item.IconPath)
@@ -31,9 +40,29 @@ export struct Yours {
         }
       }
       .tabBar("消息")
-      TabContent(){
-        List(){
 
+      TabContent() {
+        List() {
+          ForEach(Array.from(this.friends), (item: [string, Friends[]]) => {
+            ListItem() {
+              Button(item[0])
+                .onClick(() => {
+                  this.signal[item[0]] = !this.signal[item[0]]
+                })
+              if (this.signal[item[0]]) {
+                ForEach(item[1], (elem: Friends, index: number) => {
+                  ListItem() {
+                    Row() {
+                      Image(elem.IconPath)
+                      Column() {
+                        Text(elem.Name)
+                      }
+                    }
+                  }
+                })
+              }
+            }
+          })
         }
       }
       .tabBar("联系人")

@@ -1,5 +1,5 @@
 
-import {Linker, receive} from './linker'
+import {Linker} from './linker'
 import {Method} from './task'
 import { promptAction } from '@kit.ArkUI';
 import { socket } from '@kit.NetworkKit';

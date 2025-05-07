@@ -2,7 +2,7 @@ import { socket } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 
-export type receive = ((value: socket.SocketMessageInfo) => string) | null
+type receive = ((value: socket.SocketMessageInfo) => string) | null
 
 export class Linker {
   link: socket.TCPSocket = socket.constructTCPSocketInstance();
