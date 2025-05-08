@@ -2,24 +2,14 @@ import { Storage } from "./storage";
 import { distributedKVStore } from "@kit.ArkData";
 import { Linker } from "./linker";
 import { socket } from "@kit.NetworkKit";
-import { systemDateTime } from "@kit.BasicServicesKit";
+import { fileIo } from "@kit.CoreFileKit"
 import { Pref } from "./preference";
 import { image } from '@kit.ImageKit';
 import { MaxCountType, MaxSelected } from "@kit.MediaLibraryKit";
+import { common } from '@kit.AbilityKit';
 
 
-export interface One {
-  ID: string;
-  Name: string;
-  IconPath: string;
-  Group: string
-}
 
-export interface  message {
-  timestamp: string,
-  message: string,
-  isSender: boolean
-}
 
 export interface Frd {
   friends: Map<string, One>;
@@ -57,6 +47,8 @@ export struct Yours {
   }
   @State Index: string[] = []
 
+  private context = this.getUIContext().getHostContext() as common.UIAbilityContext
+
   aboutToAppear(): void {
 
     // 读取好友信息
@@ -75,12 +67,12 @@ export struct Yours {
           let rec = elem.value.value.toString().split((" "))
           if (elem.key == "self") {
             this.self.Name = rec[0]
-            this.self.IconPath = rec[1]
+            this.self.IconID = rec[1]
           } else {
             let cuf: One = {
               ID: elem.key,
               Name: rec[0],
-              IconPath: rec[1],
+              IconID: rec[1],
               Group: rec[2]
             }
             this.friends.friends[cuf.ID] = cuf
@@ -166,8 +158,18 @@ export struct Yours {
           })
           break
         case "image":
-          let ID = rec[cursor]
-
+          let ID = tar[cursor]
+          cursor ++
+          let imageName = tar[cursor]
+          cursor ++
+          this.link.link.on("message", (value) => {
+            this.friends.friends[ID].IconID = imageName
+            let filesDir = this.context.getApplicationContext().filesDir
+            let picture = fileIo.openSync(filesDir + `${imageName}.png`, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
+            let write = fileIo.write(picture.fd, value.message)
+          })
+        case "finish":
+          return ""
       }
       return ""
     })
@@ -181,7 +183,7 @@ export struct Yours {
             ListItem() {
               Button(){
                 Row() {
-                  Image(this.friends.friends[item].IconPath)
+                  Image(this.friends.friends[item].IconID)
                   Column() {
                     Text(this.friends.friends[item].Name)
                   }
@@ -211,7 +213,7 @@ export struct Yours {
                 ListItem() {
                   Button(){
                     Row() {
-                      Image(this.friends.friends[elem].IconPath)
+                      Image(this.friends.friends[elem].IconID)
                       Text(this.friends.friends[elem].Name)
                     }
                   }
