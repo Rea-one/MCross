@@ -45,6 +45,5 @@ export class Linker {
     }
     this.link.send(current_mess)
   }
-
 }
 

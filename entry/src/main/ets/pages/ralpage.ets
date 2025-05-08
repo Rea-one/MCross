@@ -3,18 +3,23 @@ import {Linker} from './linker'
 import {Method} from './task'
 import { promptAction } from '@kit.ArkUI';
 import { socket } from '@kit.NetworkKit';
-import { Self } from  './yours'
+import { One } from  './yours'
 
 @Component
 export struct RegANDLog {
-  @Provide('self') self: Self = {
+  @Provide('self') self: One = {
     ID: "",
-    IconPath: ""
+    Name: "",
+    IconPath: "",
+    Group: "self"
   }
+
+  @Consume('pageStack') PageStack: NavPathStack;
+  @Consume('linker') link: Linker;
+
   @State account: string = '';
   @State password: string = '';
-  @Consume('PageStack') PageStack: NavPathStack;
-  @Consume('linker') link: Linker;
+
   m: Method = new Method()
 
   build() {
@@ -47,9 +52,8 @@ export struct RegANDLog {
             .onClick(() => {
               this.link.send(this.m.login(this.account, this.password), (message: socket.SocketMessageInfo) => {
                 let translated: string = ""
-                let storage = new Uint8Array(message.message)
                 for (let order: number = 0; order < message.message.byteLength; order++) {
-                  translated += String.fromCharCode(storage[order])
+                  translated += String.fromCharCode(message.message[order])
                 }
                 switch (translated) {
                   case "login success":

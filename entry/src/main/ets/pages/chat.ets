@@ -1,18 +1,32 @@
 import { distributedKVStore } from '@kit.ArkData'
+import { message, One } from './yours'
 
 
 @Component
 export struct ChatPage {
-
-  @State messages: [string, string][] = []
+  @Consume('self') self: One
+  @Consume('friend') mess: message[]
 
 
   build() {
     List() {
-      ForEach(this.messages, (item: [string, string], index: number) => {
+      ForEach(this.mess, (item: message, index: number) => {
         ListItem() {
           Row(){
-            Image()
+            if (item.isSender) {
+              Image("")
+              Column()
+              {
+                Text(item.timestamp)
+                Text(item.message)
+              }
+            } else {
+              Image("")
+              Column(){
+                Text(item.timestamp)
+                Text(item.message)
+              }
+            }
           }
         }
       })

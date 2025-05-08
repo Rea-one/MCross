@@ -1,3 +1,4 @@
+import { socket } from "@kit.NetworkKit"
 
 
 export class Method {

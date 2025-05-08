@@ -3,7 +3,7 @@
 @Component
 export struct WaitPage
 {
-  @Consume('PageStack') PageStack:NavPathStack
+  @Consume('pageStack') pageStack:NavPathStack
   build()
   {
     NavDestination()

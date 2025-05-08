@@ -12,7 +12,7 @@ export struct RegPage
   @State reject: boolean = true;
   @Consume('linker') link: Linker
 
-  @Consume('PageStack') PageStack:NavPathStack
+  @Consume('pageStack') pageStack:NavPathStack
 
   m: Method = new Method()
   build()
@@ -71,7 +71,7 @@ export struct RegPage
                 }
                 switch (translated){
                   case "registration success":
-                    this.PageStack.pushPathByName('ralPage', '')
+                    this.pageStack.pushPathByName('ralPage', '')
                     this.getUIContext().getPromptAction().showToast({
                       message: "注册完成，可以登录了",
                       duration: 2000
