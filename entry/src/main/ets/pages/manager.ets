@@ -22,6 +22,16 @@ export interface  Message {
   isSender: boolean
 }
 
+interface Feedback {
+  Image: string;
+  Message: string;
+  Receiver: string;
+  Sender: string;
+  State: string;
+  Timestamp: string;
+}
+
+
 class SocketInfo {
   message: ArrayBuffer = new ArrayBuffer(1);
   remoteInfo: socket.SocketRemoteInfo = {} as socket.SocketRemoteInfo;
@@ -108,42 +118,56 @@ export class Manager extends UIAbility{
   }
 
   react(stream: SocketInfo) {
-    let buffer = stream.message
-    let dataView = new DataView(buffer)
+    const dataString = this.decode(stream.message); // 将 ArrayBuffer 转换为字符串
 
-    let one_tar = ""
+    try {
+      const feedback: Feedback = JSON.parse(dataString); // 解析 JSON
 
-    let rec = ""
-    let next = ""
-    let now = ""
-    for (let order = 0; order < dataView.byteLength; order ++) {
-      now = String.fromCharCode(dataView.getUint8(order)).toString();
-      if (now == " "){
-        switch (rec) {
-          case "time":
-            for (order ++, now = String.fromCharCode(dataView.getUint8(order)).toString();
-              now != " "; order ++){
-              next += now
-            }
-            this.timestamp = next
-            break
-          case "friend":
-            for (order ++, now = String.fromCharCode(dataView.getUint8(order)).toString();
-              now != " "; order ++){
-              next += now
-            }
-            one_tar = next
-            break
-          case "message":
-            for (order ++, now = String.fromCharCode(dataView.getUint8(order)).toString();
-              now != " "; order ++){
-              next += now
-            }
-            this.messes[one_tar]
-        }
-      } else {
-        rec += now
+      switch (feedback.State) {
+        case "nomore":
+          console.info(`关闭连接中，来自 ${feedback.Sender}`);
+          // 执行关闭逻辑
+          break;
+
+        case "request image":
+          console.info(`请求图片，ID: ${feedback.Image}`);
+          // 请求图片逻辑，例如从 Pref 或 Storage 获取图片数据
+          break;
+
+        default:
+          console.info(`收到消息: ${feedback.Message}, 时间戳: ${feedback.Timestamp}`);
+        // 处理普通消息
+          this.handleMessage(feedback.Sender, feedback.Message, feedback.Timestamp);
+          break;
       }
     }
+    catch (error) {
+      console.error("解析反馈数据失败", error);
+    }
+  }
+  decode(buffer: ArrayBuffer): Feedback | null {
+    try {
+      const dataString = this.arrayBufferToString(buffer).trim();
+
+      if (!dataString) {
+        console.error("解码失败：空数据");
+        return null;
+      }
+
+      const feedback: Feedback = JSON.parse(dataString);
+      return feedback;
+    }
+    catch (error) {
+      console.error("解析反馈数据失败", error);
+      return null;
+    }
+  }
+  arrayBufferToString(buffer: ArrayBuffer): string {
+    const dataView = new DataView(buffer);
+    let str = '';
+    for (let order = 0; order < dataView.byteLength; order++) {
+      str += String.fromCharCode(dataView.getUint8(order));
+    }
+    return str;
   }
 }
