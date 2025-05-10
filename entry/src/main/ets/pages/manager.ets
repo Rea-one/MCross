@@ -6,7 +6,7 @@ import { fileIo } from "@kit.CoreFileKit"
 import { Pref } from "./preference";
 import { image } from '@kit.ImageKit';
 import { MaxCountType, MaxSelected } from "@kit.MediaLibraryKit";
-import { common, UIAbility } from '@kit.AbilityKit';
+import { AbilityConstant, common, UIAbility, Want } from '@kit.AbilityKit';
 
 
 
@@ -37,8 +37,91 @@ class SocketInfo {
   remoteInfo: socket.SocketRemoteInfo = {} as socket.SocketRemoteInfo;
 }
 
-export class Manager extends UIAbility{
-  private Options: distributedKVStore.Options = {
+class NetworkService {
+  private link: Linker;
+
+  constructor(link: Linker) {
+    this.link = link;
+  }
+
+  onMessageReceived(callback: (data: Feedback) => void) {
+    this.link.link.on("message", (info: socket.SocketMessageInfo) => {
+      const decoded = this.arrayBufferToString(info.message);
+      try {
+        const feedback: Feedback = JSON.parse(decoded);
+        callback(feedback);
+      } catch (error) {
+        console.error("解析消息失败", error);
+      }
+    });
+  }
+
+  arrayBufferToString(buffer: ArrayBuffer): string {
+    let str = '';
+    const dataView = new DataView(buffer);
+    for (let order = 0; order < dataView.byteLength; order++) {
+      str += String.fromCharCode(dataView.getUint8(order));
+    }
+    return str;
+  }
+}
+
+class StoreService {
+  private self: Pref = new Pref()
+  private store: Storage;
+  private options: distributedKVStore.Options;
+
+  constructor(store: Storage, options: distributedKVStore.Options) {
+    this.store = store;
+    this.options = options;
+  }
+
+  getConfig() {
+    return this.self.dp
+  }
+
+  async getFriendsStore(): Promise<distributedKVStore.SingleKVStore> {
+    return await this.store.get_store("ones", this.options);
+  }
+
+  async getMessagesStore(): Promise<distributedKVStore.SingleKVStore> {
+    return await this.store.get_store("messages", this.options);
+  }
+
+  async getImageStore(): Promise<distributedKVStore.SingleKVStore> {
+    return await this.store.get_store("image", this.options);
+  }
+  async getSignalStore(): Promise<distributedKVStore.SingleKVStore> {
+    return await this.store.get_store("signal", this.options);
+  }
+  // 提供读写接口
+}
+
+class waiter {
+  self: One = {
+    ID: "",
+    Name: "",
+    IconID: ""
+  }
+  timestamp = ""
+  feedback: Feedback = {
+    Image: "",
+    Message: "",
+    Receiver: "",
+    Sender: "",
+    State: "",
+    Timestamp: ""
+  }
+  the_frd: Map<string, string[]> = new Map<string, string[]>()
+  the_sgn: Map<string, One> = new Map<string, One>()
+  the_msg: Map<string, [string, string][]> = new Map<string, [string, string][]>()
+  the_img: Map<string, string> = new Map<string, string>()
+  cfg_s: preferences.Preferences | null = null
+  frd_s: distributedKVStore.SingleKVStore | null = null
+  sgn_s: distributedKVStore.SingleKVStore | null = null
+  msg_s: distributedKVStore.SingleKVStore | null = null
+  img_s: distributedKVStore.SingleKVStore | null = null
+  options: distributedKVStore.Options = {
     createIfMissing: true,
     encrypt: false,
     backup: false,
@@ -46,128 +129,210 @@ export class Manager extends UIAbility{
     kvStoreType: distributedKVStore.KVStoreType.DEVICE_COLLABORATION,
     securityLevel: distributedKVStore.SecurityLevel.S3
   }
-  private POptions:  preferences.Options = { name: 'self' };
-  private timestamp: string = ""
-  private link:     Linker = new Linker()
-  private store:    Storage = new Storage()
-  private pref:     preferences.Preferences | null = null
-  private hot:      distributedKVStore.SingleKVStore | null = null
-  private Friends:     distributedKVStore.SingleKVStore | null = null
-  private Messes: distributedKVStore.SingleKVStore | null = null
-  private Groups:   distributedKVStore.SingleKVStore | null = null
 
-  friends:  Map<string, One> = new Map<string, One>()
-  messes:   Map<string, Message[]> = new Map<string, Message[]>()
-  groups:   Map<string, string[]> = new Map<string, string[]>()
+  async init(self: One, net_man: NetworkService): Promise<void> {
+  this.self = self;
+  const store = new StoreService(new Storage(), this.options);
+  this.cfg_s = store.getConfig();
 
-  Init(){
-    this.store.get_store("hot", this.Options)
-      .then((store) => {
-        this.hot = store
+  try {
+    const stores = await Promise.all([
+      store.getFriendsStore(),
+      store.getMessagesStore(),
+      store.getImageStore(),
+      store.getSignalStore()
+    ]);
 
-      })
-    this.store.get_store("ones", this.Options)
-      .then((store) => {
-        this.Friends = store
-      })
-    this.store.get_store("messages", this.Options)
-      .then((store) => {
-        this.Messes = store
-      })
-    this.store.get_store("group", this.Options)
-      .then((store) => {
-        this.Groups = store
-      })
-    this.pref = preferences.getPreferencesSync(this.context, this.POptions)
-    this.timestamp = this.pref.getSync("timestamp", "default").toString()
-  }
+    const frdStore = stores[0];
+    const msgStore = stores[1];
+    const imgStore = stores[2];
+    const sgnStore = stores[3];
 
-  update_this(){
-    this.Friends?.getEntries("", (err, val) => {
-      val.forEach(elem => {
-        let rec = elem.value
-        let targets = rec.value.toString().split(" ")
-        this.friends[elem.key] = {
-          ID: elem.key,
-          Name: targets[0],
-          IconID: targets[1]
-        }
-      })
-    })
-    this.Messes?.getEntries("", (err, val) => {
-      val.forEach(elem => {
-        let rec = elem.value
-        let targets = rec.value.toString().split(" ")
-        for (let order = 0; order < targets.length; order += 3) {
-          this.messes[elem.key] = {
-            timestamp:  targets[order],
-            message:    targets[order + 1],
-            isSender:   targets[order + 2]
+    this.frd_s = frdStore;
+    this.msg_s = msgStore;
+    this.img_s = imgStore;
+    this.sgn_s = sgnStore;
+
+    // 并行加载数据
+    await Promise.all([
+      this.getFrdFS(),
+      this.getMsgFS(),
+      this.getImgFS(),
+      this.getSgnFS(),
+      this.getSelfFS()
+    ]);
+
+    // 监听消息
+    net_man.onMessageReceived((receivedFeedback: Feedback) => {
+      // 更新 feedback 和 timestamp
+      this.feedback = receivedFeedback;
+      console.info("接收到新消息", this.feedback);
+
+      switch (this.feedback.State) {
+        case "message":
+          const sender = this.feedback.Sender;
+          const receiver = this.feedback.Receiver;
+          const message = [sender, this.feedback.Message];
+          if (sender !== this.self.ID) {
+            this.the_msg[sender]?.push(message as [string, string]);
+          } else {
+            this.the_msg[receiver]?.push(message as [string, string]);
           }
+          break;
+        case "image":
+          this.the_img[this.feedback.Image] = `http://${this.feedback.Message}/${this.feedback.Image}`;
+          break;
+      }
+
+      if (this.feedback.Timestamp) {
+        this.timestamp = this.feedback.Timestamp;
+      }
+
+      void this.try_sync();
+    });
+
+  } catch (error) {
+    console.error("初始化失败", error);
+  }
+}
+
+  getFrd(index: string): string[] | void {
+    return this.the_frd[index]
+  }
+  getSgn(index: string): One | void {
+    return this.the_sgn[index]
+  }
+
+  getMsg(index: string): [string, boolean][] | void {
+    return this.the_msg[index]
+  }
+
+  getImg(index: string): string {
+    return this.the_img[index]
+  }
+
+  async try_sync() {
+  this.cfg_s?.get("timestamp", async (value: string | null) => {
+    if (typeof value === 'string') {
+      if (this.timestamp === "" || this.timestamp < value) {
+        this.cfg_s?.put("timestamp", this.timestamp);
+        this.cfg_s?.flush();
+        console.info("本地缓存已更新为最新时间戳:", this.timestamp);
+
+        // 同步所有数据到分布式存储
+        await this.saveImage();
+        await this.saveSignal();
+        await this.saveMessage();
+        await this.saveFriend();
+      } else {
+        this.timestamp = value;
+        console.info("使用本地缓存时间戳:", this.timestamp);
+      }
+    } else {
+      this.cfg_s?.put("timestamp", this.timestamp);
+      this.cfg_s?.flush();
+      console.info("首次写入时间戳到缓存:", this.timestamp);
+    }
+  });
+}
+  async getSelfFS() {
+    this.cfg_s?.get("timestamp", async (val: string | null) => {
+      if (val != null) {
+        if (this.self === null || this.timestamp == "" || this.timestamp < val) {
+          this.cfg_s?.get("self", async (value: string | null) => {
+            if (value != null) {
+              this.self = JSON.parse(value)
+            }
+          })
         }
-      })
-    })
-    this.Groups?.getEntries("", (err, val) => {
-      val.forEach(elem => {
-        let rec = elem.value
-        let targets = rec.value.toString().split(" ")
-        this.groups[elem.key] = targets
-      })
-    })
-    this.groups
-  }
-
-  react(stream: SocketInfo) {
-    const dataString = this.decode(stream.message); // 将 ArrayBuffer 转换为字符串
-
-    try {
-      const feedback: Feedback = JSON.parse(dataString); // 解析 JSON
-
-      switch (feedback.State) {
-        case "nomore":
-          console.info(`关闭连接中，来自 ${feedback.Sender}`);
-          // 执行关闭逻辑
-          break;
-
-        case "request image":
-          console.info(`请求图片，ID: ${feedback.Image}`);
-          // 请求图片逻辑，例如从 Pref 或 Storage 获取图片数据
-          break;
-
-        default:
-          console.info(`收到消息: ${feedback.Message}, 时间戳: ${feedback.Timestamp}`);
-        // 处理普通消息
-          this.handleMessage(feedback.Sender, feedback.Message, feedback.Timestamp);
-          break;
       }
-    }
-    catch (error) {
-      console.error("解析反馈数据失败", error);
-    }
+    })
   }
-  decode(buffer: ArrayBuffer): Feedback | null {
-    try {
-      const dataString = this.arrayBufferToString(buffer).trim();
 
-      if (!dataString) {
-        console.error("解码失败：空数据");
-        return null;
+  async getFrdFS() {
+    if (!this.frd_s) {
+      console.error("好友存储未初始化");
+      return;
+    }
+    // 从分布式存储中获取所有好友数据
+    this.frd_s.getEntries("", (err, val) => {
+      for (let key of val.keys()) {
+        this.the_frd[key.toString()] = val[key]
       }
+    })
+  }
 
-      const feedback: Feedback = JSON.parse(dataString);
-      return feedback;
+  async getSgnFS() {
+    if (!this.sgn_s) {
+      console.error("信息存储未初始化");
+      return;
     }
-    catch (error) {
-      console.error("解析反馈数据失败", error);
-      return null;
+    this.sgn_s.getEntries("", (err, val) => {
+      for (let key of val.keys()) {
+        this.the_sgn[key.toString()] = JSON.parse(val[key].toString())
+      }
+    })
+  }
+
+  async getMsgFS() {
+    if (!this.msg_s) {
+      console.error("消息存储未初始化");
+      return;
+    }
+    this.msg_s.getEntries("", (err, val) => {
+      for (let key of val.keys()) {
+        let rec = val[key].toString().split(" ")
+        this.the_msg[key] = [rec[0], rec]
+      }
+    })
+  }
+
+  async getImgFS() {
+  if (!this.frd_s) {
+    console.error("图像存储未初始化");
+    return;
+  }
+  this.frd_s.getEntries("", (err, val) => {
+    for (let key of val.keys()) {
+      this.the_img[key.toString()] = val[key]
+    }
+  });
+}
+
+
+  async saveFriend() {
+    if (!this.frd_s) return;
+    for (let elem of this.the_frd) {
+      let rec = ""
+      for (let tar of elem[1]){
+        rec += tar + " "
+      }
+      this.frd_s.put(elem[0], rec)
     }
   }
-  arrayBufferToString(buffer: ArrayBuffer): string {
-    const dataView = new DataView(buffer);
-    let str = '';
-    for (let order = 0; order < dataView.byteLength; order++) {
-      str += String.fromCharCode(dataView.getUint8(order));
+
+  async saveSignal() {
+    if (!this.sgn_s) return;
+    for (let elem of this.the_sgn) {
+      this.sgn_s.put(elem[0], JSON.stringify(elem[1]))
     }
-    return str;
+  }
+
+  async saveMessage() {
+    if (!this.msg_s) return;
+    for (let elem of this.the_msg) {
+      this.msg_s.put(elem[0], elem[1][0] + " " + elem[1][1])
+    }
+  }
+  async saveImage() {
+  if (!this.img_s) return;
+  for (let elem of this.the_img) {
+    await this.img_s.put(elem[0], elem[1]); // 将每个图像映射写入分布式存储
+  }
+}
+  async  saveConfig() {
+    if (!this.cfg_s) return;
+    await this.cfg_s.put("timestamp", this.timestamp)
+    await this.cfg_s.put("self", JSON.stringify(this.self))
   }
 }
