@@ -32,7 +32,7 @@ export struct RegANDLog {
           Text('密码');
           TextInput({ placeholder: '请输入密码' })
             .onChange((value: string) => {
-              this.account = value;
+              this.password = value;
             })
             .type(InputType.Password);
         }
@@ -45,6 +45,9 @@ export struct RegANDLog {
 
           Button('登录')
             .onClick(() => {
+              this.waiter.onLoginSuccess(() => {
+                this.PageStack.pushPathByName("yours", "")
+              })
               this.nets.send(this.m.login(this.account, this.password))
             });
         }

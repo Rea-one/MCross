@@ -55,7 +55,7 @@ export class NetworkService {
       }
     });
   }
-
+  
   arrayBufferToString(buffer: ArrayBuffer): string {
     let str = '';
     const dataView = new DataView(buffer);
@@ -121,6 +121,8 @@ export class Waiter {
   public the_img: Map<string, string> = new Map<string, string>()
   public the_hot: string[] = []
 
+  private onLoginSuccessCallbacks: Array<() => void> = [];
+
   cfg_s: preferences.Preferences | null = null
   frd_s: distributedKVStore.SingleKVStore | null = null
   sgn_s: distributedKVStore.SingleKVStore | null = null
@@ -172,6 +174,7 @@ export class Waiter {
               this.change()
               this.self.ID = this.feedback.Sender
             }
+            this.onLoginSuccessCallbacks.forEach(cb => cb());
           case "message":
             const sender = this.feedback.Sender;
             const receiver = this.feedback.Receiver;
@@ -212,7 +215,7 @@ export class Waiter {
               this.the_sgn[this.feedback.Sender].IconID = this.feedback.Image
             }
         }
-
+        this.onLoginSuccessCallbacks = []
         if (this.feedback.Timestamp) {
           this.timestamp = this.feedback.Timestamp;
         }
@@ -411,6 +414,10 @@ export class Waiter {
     await this.cfg_s.put("timestamp", this.timestamp)
     await this.cfg_s.put("self", JSON.stringify(this.self))
     await this.cfg_s.put("hot", this.the_hot.join(","))
+  }
+
+  onLoginSuccess(callback: () => void) {
+    this.onLoginSuccessCallbacks.push(callback);
   }
 }
 

@@ -1,11 +1,15 @@
 import { distributedKVStore } from '@kit.ArkData'
-import { One, Waiter } from './manager'
+import { NetworkService, One, Waiter } from './manager'
 
 
 @Component
 export struct ChatPage {
+  @Consume('nets') nets: NetworkService
   @Consume('waiter') waiter: Waiter
   @Consume('chatTar') chatTar: string
+
+  @State message: string = ""
+
   self: One | null = null
   friend: One | null = null
 
@@ -48,7 +52,16 @@ export struct ChatPage {
       }
       Row(){
         TextInput()
+          .onChange((val) => {
+            this.message = val
+          })
         Button("发送")
+          .onClick(() => {
+            if (this.self != null){
+              this.nets.send(`s ${this.self.ID} r ${this.chatTar} m ${this.message}`)
+            }
+            this.message = ""
+          })
       }
     }
   }

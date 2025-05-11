@@ -12,7 +12,7 @@ import { One, Waiter } from "./manager";
 
 @Component
 export struct Yours {
-  @Consume('pageStack')     pageStack: NavPathStack;
+  @Consume('pageStack') pageStack: NavPathStack;
   @Consume('waiter') waiter: Waiter
 
   @Provide('chatTar') chatTar: string = ""
