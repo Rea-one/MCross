@@ -1,4 +1,4 @@
-import { One } from "./yours"
+import { One } from "./manager"
 
 
 @Component

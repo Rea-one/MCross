@@ -37,7 +37,7 @@ class SocketInfo {
   remoteInfo: socket.SocketRemoteInfo = {} as socket.SocketRemoteInfo;
 }
 
-class NetworkService {
+export class NetworkService {
   private link: Linker;
 
   constructor(link: Linker) {
@@ -63,6 +63,9 @@ class NetworkService {
       str += String.fromCharCode(dataView.getUint8(order));
     }
     return str;
+  }
+  send(message: string){
+    this.link.void_send(message)
   }
 }
 
@@ -97,8 +100,8 @@ class StoreService {
   // 提供读写接口
 }
 
-class waiter {
-  self: One = {
+export class Waiter {
+  public self: One = {
     ID: "",
     Name: "",
     IconID: ""
@@ -112,94 +115,149 @@ class waiter {
     State: "",
     Timestamp: ""
   }
-  the_frd: Map<string, string[]> = new Map<string, string[]>()
-  the_sgn: Map<string, One> = new Map<string, One>()
-  the_msg: Map<string, [string, string][]> = new Map<string, [string, string][]>()
-  the_img: Map<string, string> = new Map<string, string>()
+  public the_frd: Map<string, string[]> = new Map<string, string[]>()
+  public the_sgn: Map<string, One> = new Map<string, One>()
+  public the_msg: Map<string, [string, string][]> = new Map<string, [string, string][]>()
+  public the_img: Map<string, string> = new Map<string, string>()
+  public the_hot: string[] = []
+
   cfg_s: preferences.Preferences | null = null
   frd_s: distributedKVStore.SingleKVStore | null = null
   sgn_s: distributedKVStore.SingleKVStore | null = null
   msg_s: distributedKVStore.SingleKVStore | null = null
   img_s: distributedKVStore.SingleKVStore | null = null
-  options: distributedKVStore.Options = {
-    createIfMissing: true,
-    encrypt: false,
-    backup: false,
-    autoSync: false,
-    kvStoreType: distributedKVStore.KVStoreType.DEVICE_COLLABORATION,
-    securityLevel: distributedKVStore.SecurityLevel.S3
+  options: distributedKVStore.Options | null = null
+
+  async init(opt: distributedKVStore.Options, net_man: NetworkService): Promise<void> {
+    this.options = opt
+    const store = new StoreService(new Storage(), this.options);
+    this.cfg_s = store.getConfig();
+
+    try {
+      const stores = await Promise.all([
+        store.getFriendsStore(),
+        store.getMessagesStore(),
+        store.getImageStore(),
+        store.getSignalStore()
+      ]);
+
+      const frdStore = stores[0];
+      const msgStore = stores[1];
+      const imgStore = stores[2];
+      const sgnStore = stores[3];
+
+      this.frd_s = frdStore;
+      this.msg_s = msgStore;
+      this.img_s = imgStore;
+      this.sgn_s = sgnStore;
+
+      // 并行加载数据
+      await Promise.all([
+        this.getFrdFS(),
+        this.getMsgFS(),
+        this.getImgFS(),
+        this.getSgnFS(),
+        this.getSelfFS(),
+        this.getHotFS()
+      ]);
+
+      // 监听消息
+      net_man.onMessageReceived((receivedFeedback: Feedback) => {
+        // 更新 feedback 和 timestamp
+        this.feedback = receivedFeedback;
+        console.info("接收到新消息", this.feedback);
+        switch (this.feedback.State) {
+          case "login success":
+            if (this.feedback.Sender != this.self.ID) {
+              this.change()
+              this.self.ID = this.feedback.Sender
+            }
+          case "message":
+            const sender = this.feedback.Sender;
+            const receiver = this.feedback.Receiver;
+            const message = [sender, this.feedback.Message];
+            let target = ""
+            if (sender !== this.self.ID) {
+              this.the_msg[sender].push(sender, message);
+              target = sender
+            } else {
+              this.the_msg[receiver].push(sender, message);
+              target = receiver
+            }
+            let sign = true
+            for (let elem of this.the_hot) {
+              if (elem == target) {
+                sign = false
+              }
+            }
+            if (sign){
+              this.the_hot.push(target)
+              this.the_hot.pop()
+            }
+            break;
+          case "image":
+            this.the_img[this.feedback.Image] = `http://${this.feedback.Message}/${this.feedback.Image}`;
+            break;
+          case "group":
+            this.the_frd[this.feedback.Message] = this.feedback.Sender
+            break
+          case "config":
+            if (this.self.ID == "" || this.feedback.Sender == this.self.ID) {
+              this.self.ID = this.feedback.Sender
+              this.self.Name = this.feedback.Message
+              this.self.IconID = this.feedback.Image
+            } else {
+              this.the_sgn[this.feedback.Sender].ID = this.feedback.Sender
+              this.the_sgn[this.feedback.Sender].Name = this.feedback.Message
+              this.the_sgn[this.feedback.Sender].IconID = this.feedback.Image
+            }
+        }
+
+        if (this.feedback.Timestamp) {
+          this.timestamp = this.feedback.Timestamp;
+        }
+
+        void this.try_sync();
+      });
+
+    } catch (error) {
+      console.error("初始化失败", error);
+    }
   }
 
-  async init(self: One, net_man: NetworkService): Promise<void> {
-  this.self = self;
-  const store = new StoreService(new Storage(), this.options);
-  this.cfg_s = store.getConfig();
+  async change(): Promise<void> {
+    // 清除当前用户信息
+    this.self = {
+      ID: "",
+      Name: "",
+      IconID: ""
+    };
+    this.timestamp = "";
 
-  try {
-    const stores = await Promise.all([
-      store.getFriendsStore(),
-      store.getMessagesStore(),
-      store.getImageStore(),
-      store.getSignalStore()
-    ]);
+    // 清空聊天记录、联系人、热门联系人等数据
+    this.the_frd.clear();
+    this.the_sgn.clear();
+    this.the_msg.clear();
+    this.the_hot = [];
 
-    const frdStore = stores[0];
-    const msgStore = stores[1];
-    const imgStore = stores[2];
-    const sgnStore = stores[3];
+    // 清空本地缓存
+    if (this.cfg_s) {
+      await this.cfg_s.clear(); // 清除 preferences 缓存
+      await this.cfg_s.flush();
+    }
 
-    this.frd_s = frdStore;
-    this.msg_s = msgStore;
-    this.img_s = imgStore;
-    this.sgn_s = sgnStore;
+    // 如果有同步需求，也可以清空分布式存储中的内容
+    if (this.frd_s) await clearKVStore(this.frd_s);
+    if (this.sgn_s) await clearKVStore(this.sgn_s);
+    if (this.msg_s) await clearKVStore(this.msg_s);
 
-    // 并行加载数据
-    await Promise.all([
-      this.getFrdFS(),
-      this.getMsgFS(),
-      this.getImgFS(),
-      this.getSgnFS(),
-      this.getSelfFS()
-    ]);
-
-    // 监听消息
-    net_man.onMessageReceived((receivedFeedback: Feedback) => {
-      // 更新 feedback 和 timestamp
-      this.feedback = receivedFeedback;
-      console.info("接收到新消息", this.feedback);
-
-      switch (this.feedback.State) {
-        case "message":
-          const sender = this.feedback.Sender;
-          const receiver = this.feedback.Receiver;
-          const message = [sender, this.feedback.Message];
-          if (sender !== this.self.ID) {
-            this.the_msg[sender]?.push(message as [string, string]);
-          } else {
-            this.the_msg[receiver]?.push(message as [string, string]);
-          }
-          break;
-        case "image":
-          this.the_img[this.feedback.Image] = `http://${this.feedback.Message}/${this.feedback.Image}`;
-          break;
-      }
-
-      if (this.feedback.Timestamp) {
-        this.timestamp = this.feedback.Timestamp;
-      }
-
-      void this.try_sync();
-    });
-
-  } catch (error) {
-    console.error("初始化失败", error);
+    console.info("账号信息已重置");
   }
-}
 
   getFrd(index: string): string[] | void {
     return this.the_frd[index]
   }
-  getSgn(index: string): One | void {
+  getSgn(index: string): One {
     return this.the_sgn[index]
   }
 
@@ -211,30 +269,34 @@ class waiter {
     return this.the_img[index]
   }
 
+  getHot(){
+    return this.the_hot
+  }
+
   async try_sync() {
-  this.cfg_s?.get("timestamp", async (value: string | null) => {
-    if (typeof value === 'string') {
-      if (this.timestamp === "" || this.timestamp < value) {
+    this.cfg_s?.get("timestamp", async (value: string | null) => {
+      if (typeof value === 'string') {
+        if (this.timestamp === "" || this.timestamp < value) {
+          this.cfg_s?.put("timestamp", this.timestamp);
+          this.cfg_s?.flush();
+          console.info("本地缓存已更新为最新时间戳:", this.timestamp);
+
+          // 同步所有数据到分布式存储
+          await this.saveImage();
+          await this.saveSignal();
+          await this.saveMessage();
+          await this.saveFriend();
+        } else {
+          this.timestamp = value;
+          console.info("使用本地缓存时间戳:", this.timestamp);
+        }
+      } else {
         this.cfg_s?.put("timestamp", this.timestamp);
         this.cfg_s?.flush();
-        console.info("本地缓存已更新为最新时间戳:", this.timestamp);
-
-        // 同步所有数据到分布式存储
-        await this.saveImage();
-        await this.saveSignal();
-        await this.saveMessage();
-        await this.saveFriend();
-      } else {
-        this.timestamp = value;
-        console.info("使用本地缓存时间戳:", this.timestamp);
+        console.info("首次写入时间戳到缓存:", this.timestamp);
       }
-    } else {
-      this.cfg_s?.put("timestamp", this.timestamp);
-      this.cfg_s?.flush();
-      console.info("首次写入时间戳到缓存:", this.timestamp);
-    }
-  });
-}
+    });
+  }
   async getSelfFS() {
     this.cfg_s?.get("timestamp", async (val: string | null) => {
       if (val != null) {
@@ -288,17 +350,31 @@ class waiter {
   }
 
   async getImgFS() {
-  if (!this.frd_s) {
-    console.error("图像存储未初始化");
-    return;
-  }
-  this.frd_s.getEntries("", (err, val) => {
-    for (let key of val.keys()) {
-      this.the_img[key.toString()] = val[key]
+    if (!this.frd_s) {
+      console.error("图像存储未初始化");
+      return;
     }
-  });
-}
+    this.frd_s.getEntries("", (err, val) => {
+      for (let key of val.keys()) {
+        this.the_img[key.toString()] = val[key]
+      }
+    });
+  }
 
+  async getHotFS(): Promise<void> {
+    if (!this.cfg_s) {
+      console.error("配置存储未初始化");
+      return;
+    }
+
+    this.cfg_s.get("hot", (val: string) => {
+      if (typeof val === 'string' && val.trim()) {
+        this.the_hot = val.split(",");
+      } else {
+        this.the_hot = [];
+      }
+    })
+  }
 
   async saveFriend() {
     if (!this.frd_s) return;
@@ -325,14 +401,22 @@ class waiter {
     }
   }
   async saveImage() {
-  if (!this.img_s) return;
-  for (let elem of this.the_img) {
-    await this.img_s.put(elem[0], elem[1]); // 将每个图像映射写入分布式存储
+    if (!this.img_s) return;
+    for (let elem of this.the_img) {
+      await this.img_s.put(elem[0], elem[1]);
+    }
   }
-}
-  async  saveConfig() {
+  async saveConfig() {
     if (!this.cfg_s) return;
     await this.cfg_s.put("timestamp", this.timestamp)
     await this.cfg_s.put("self", JSON.stringify(this.self))
+    await this.cfg_s.put("hot", this.the_hot.join(","))
+  }
+}
+
+async function clearKVStore(store: distributedKVStore.SingleKVStore): Promise<void> {
+  const entries = await store.getEntries("");
+  for (const entry of entries) {
+    await store.delete(entry.key);
   }
 }

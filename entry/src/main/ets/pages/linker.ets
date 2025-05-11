@@ -2,32 +2,13 @@ import { socket } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 
-type receive = ((value: socket.SocketMessageInfo) => string) | null
-
 export class Linker {
   link: socket.TCPSocket = socket.constructTCPSocketInstance();
   address: socket.NetAddress = {} as socket.NetAddress;
 
-  private receive: receive | null = null
-
   init(){
     this.address.address = '192.168.43.188';
-    this.address.port = 25054
-    this.link.on('message', (mess: socket.SocketMessageInfo) => {
-      let result: string = ""
-      if (this.receive != null)
-      {
-        result = this.receive(mess)
-      } else {
-        result = "nothing"
-      }
-      this.receive = null
-      return result
-    })
-    // 设置错误监听器（非常重要！）
-    this.link.on('error', (err: BusinessError) => {
-      console.error('Socket error:', err);
-    });
+    this.address.port = 25054;
   }
 
   connect(){
@@ -38,8 +19,13 @@ export class Linker {
   }
 
 
-  send(value: string, action: receive){
-    this.receive = action
+  send(value: string){
+    let current_mess: socket.TCPSendOptions = {
+      data: value
+    }
+    this.link.send(current_mess)
+  }
+  void_send(value: string) {
     let current_mess: socket.TCPSendOptions = {
       data: value
     }

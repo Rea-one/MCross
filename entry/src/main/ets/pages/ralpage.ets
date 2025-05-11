@@ -3,19 +3,14 @@ import {Linker} from './linker'
 import {Method} from './task'
 import { promptAction } from '@kit.ArkUI';
 import { socket } from '@kit.NetworkKit';
-import { One } from  './yours'
+import { NetworkService, Waiter } from './manager';
 
 @Component
 export struct RegANDLog {
-  @Provide('self') self: One = {
-    ID: "",
-    Name: "",
-    IconPath: "",
-    Group: "self"
-  }
 
   @Consume('pageStack') PageStack: NavPathStack;
-  @Consume('linker') link: Linker;
+  @Consume('nets') nets: NetworkService
+  @Consume('waiter') waiter: Waiter
 
   @State account: string = '';
   @State password: string = '';
@@ -50,26 +45,7 @@ export struct RegANDLog {
 
           Button('登录')
             .onClick(() => {
-              this.link.send(this.m.login(this.account, this.password), (message: socket.SocketMessageInfo) => {
-                let translated: string = ""
-                for (let order: number = 0; order < message.message.byteLength; order++) {
-                  translated += String.fromCharCode(message.message[order])
-                }
-                switch (translated) {
-                  case "login success":
-                    this.self.ID = this.account
-                    this.PageStack.pushPathByName('yours', '')
-                    this.password = ''
-                    break
-                  case "wrong password or wrong id":
-                    this.getUIContext().getPromptAction().showToast({
-                      message: "账号或密码错误",
-                      duration: 2000,
-                      bottom: 80
-                    })
-                }
-                return "finish"
-              })
+              this.nets.send(this.m.login(this.account, this.password))
             });
         }
       }

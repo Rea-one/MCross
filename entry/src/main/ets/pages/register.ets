@@ -2,6 +2,7 @@ import { PromptAction } from '@kit.ArkUI'
 import {Linker} from './linker'
 import { Method } from './task'
 import { socket } from '@kit.NetworkKit'
+import { NetworkService } from './manager'
 
 @Component
 export struct RegPage
@@ -10,7 +11,7 @@ export struct RegPage
   @State cpassword: string ='';
   @State password: string = '';
   @State reject: boolean = true;
-  @Consume('linker') link: Linker
+  @Consume('nets') nets: NetworkService
 
   @Consume('pageStack') pageStack:NavPathStack
 
@@ -63,28 +64,7 @@ export struct RegPage
             if (!this.reject)
             {
               this.password = this.cpassword;
-              this.link.send(this.m.register(this.account, this.password), (message: socket.SocketMessageInfo) => {
-                let translated: string = ""
-                let storage = new Uint8Array(message.message)
-                for (let order: number = 0; order < message.message.byteLength; order++) {
-                  translated += String.fromCharCode(storage[order])
-                }
-                switch (translated){
-                  case "registration success":
-                    this.pageStack.pushPathByName('ralPage', '')
-                    this.getUIContext().getPromptAction().showToast({
-                      message: "注册完成，可以登录了",
-                      duration: 2000
-                    })
-                    return "finished"
-                  default :
-                    this.getUIContext().getPromptAction().showToast({
-                      message: "注册失败",
-                      duration: 1000
-                    })
-                    return "failed"
-                }
-              })
+              this.nets.send(this.m.register(this.account, this.password))
               this.password = ''
               this.cpassword = ''
             }

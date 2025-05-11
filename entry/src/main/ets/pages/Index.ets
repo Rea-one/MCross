@@ -8,20 +8,15 @@ import { ChatPage } from './chat';
 import { distributedKVStore } from '@kit.ArkData';
 import { preferences } from '@kit.ArkData';
 import { Pref } from './preference';
+import { NetworkService, Waiter } from './manager';
+import { rscPage } from './rscPage';
 
 @Entry
 @Component
 struct Index
 {
   @Provide('pageStack') pageStack: NavPathStack = new NavPathStack();
-  @Provide('linker')    link: Linker = new Linker()
-  @Provide('store')     store: Storage = new Storage()
-  @Provide('ones')      ones: distributedKVStore.SingleKVStore | null = null
-  @Provide('hot')       hot: distributedKVStore.SingleKVStore | null = null
-  @Provide('message')   message_store: distributedKVStore.SingleKVStore | null = null
-  @Provide('image')     image_store: distributedKVStore.SingleKVStore | null = null
-  @Provide('timestamp') timestamp: string | undefined= ""
-  @Provide('storeOptions') storeOptions: distributedKVStore.Options = {
+  @Provide('Options') Options: distributedKVStore.Options = {
     createIfMissing: true,
     encrypt: false,
     backup: false,
@@ -29,15 +24,18 @@ struct Index
     kvStoreType: distributedKVStore.KVStoreType.DEVICE_COLLABORATION,
     securityLevel: distributedKVStore.SecurityLevel.S3
   }
-  @Provide('preferences') pref: Pref = new Pref()
+  link: Linker = new Linker()
+  @Provide('nets') nets: NetworkService = new NetworkService(this.link)
+  @Provide('waiter') waiter: Waiter = new Waiter()
 
   @Builder
   page_map(name: string)
   {
-    if      (name == 'ralPage')     { RegANDLog() }
+    if      (name == 'ral')         { RegANDLog() }
     else if (name == 'register')    { RegPage() }
     else if (name == 'yours')       { Yours() }
     else if (name == 'chat')        { ChatPage() }
+    else if (name == 'research')    { rscPage() }
     else                            { WaitPage() }
   }
 
@@ -45,10 +43,7 @@ struct Index
   {
     this.link.init()
     this.pageStack.pushPathByName('', '');
-    this.store.store?.getKVStore('message', this.storeOptions, (error, feedback: distributedKVStore.SingleKVStore) => {
-
-    })
-    this.timestamp = this.pref.dp?.getSync("now", "string").toString()
+    this.waiter.init(this.Options, this.nets)
   }
 
   build()
@@ -73,6 +68,5 @@ struct Index
     .navDestination(this.page_map)
     .width('100%')
     .height('100%');
-
   }
 }
