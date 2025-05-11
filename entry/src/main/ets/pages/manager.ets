@@ -47,6 +47,7 @@ export class NetworkService {
   onMessageReceived(callback: (data: Feedback) => void) {
     this.link.link.on("message", (info: socket.SocketMessageInfo) => {
       const decoded = this.arrayBufferToString(info.message);
+      console.info("接收到消息")
       try {
         const feedback: Feedback = JSON.parse(decoded);
         callback(feedback);
@@ -120,6 +121,7 @@ export class Waiter {
   public the_msg: Map<string, [string, string][]> = new Map<string, [string, string][]>()
   public the_img: Map<string, string> = new Map<string, string>()
   public the_hot: string[] = []
+  public the_frq: string[] = []
 
   private onLoginSuccessCallbacks: Array<() => void> = [];
 
@@ -135,97 +137,95 @@ export class Waiter {
     const store = new StoreService(new Storage(), this.options);
     this.cfg_s = store.getConfig();
 
-    try {
-      const stores = await Promise.all([
-        store.getFriendsStore(),
-        store.getMessagesStore(),
-        store.getImageStore(),
-        store.getSignalStore()
-      ]);
+    const stores = await Promise.all([
+      store.getFriendsStore(),
+      store.getMessagesStore(),
+      store.getImageStore(),
+      store.getSignalStore()
+    ]);
 
-      const frdStore = stores[0];
-      const msgStore = stores[1];
-      const imgStore = stores[2];
-      const sgnStore = stores[3];
+    const frdStore = stores[0];
+    const msgStore = stores[1];
+    const imgStore = stores[2];
+    const sgnStore = stores[3];
 
-      this.frd_s = frdStore;
-      this.msg_s = msgStore;
-      this.img_s = imgStore;
-      this.sgn_s = sgnStore;
+    this.frd_s = frdStore;
+    this.msg_s = msgStore;
+    this.img_s = imgStore;
+    this.sgn_s = sgnStore;
 
-      // 并行加载数据
-      await Promise.all([
-        this.getFrdFS(),
-        this.getMsgFS(),
-        this.getImgFS(),
-        this.getSgnFS(),
-        this.getSelfFS(),
-        this.getHotFS()
-      ]);
+    // 并行加载数据
+    await Promise.all([
+      this.getFrdFS(),
+      this.getMsgFS(),
+      this.getImgFS(),
+      this.getSgnFS(),
+      this.getSelfFS(),
+      this.getHotFS()
+    ]);
 
-      // 监听消息
-      net_man.onMessageReceived((receivedFeedback: Feedback) => {
-        // 更新 feedback 和 timestamp
-        this.feedback = receivedFeedback;
-        console.info("接收到新消息", this.feedback);
-        switch (this.feedback.State) {
-          case "login success":
-            if (this.feedback.Sender != this.self.ID) {
-              this.change()
-              this.self.ID = this.feedback.Sender
+    // 监听消息
+    net_man.onMessageReceived((receivedFeedback: Feedback) => {
+      // 更新 feedback 和 timestamp
+      this.feedback = receivedFeedback;
+      console.info("接收到新消息", this.feedback);
+      switch (this.feedback.State) {
+        case "login success":
+          if (this.feedback.Sender != this.self.ID) {
+            this.change()
+            this.self.ID = this.feedback.Sender
+          }
+          this.onLoginSuccessCallbacks.forEach(cb => cb());
+        case "message":
+          const sender = this.feedback.Sender;
+          const receiver = this.feedback.Receiver;
+          const message = [sender, this.feedback.Message];
+          let target = ""
+          if (sender !== this.self.ID) {
+            this.the_msg[sender].push(sender, message);
+            target = sender
+          }
+          else {
+            this.the_msg[receiver].push(sender, message);
+            target = receiver
+          }
+          let sign = true
+          for (let elem of this.the_hot) {
+            if (elem == target) {
+              sign = false
             }
-            this.onLoginSuccessCallbacks.forEach(cb => cb());
-          case "message":
-            const sender = this.feedback.Sender;
-            const receiver = this.feedback.Receiver;
-            const message = [sender, this.feedback.Message];
-            let target = ""
-            if (sender !== this.self.ID) {
-              this.the_msg[sender].push(sender, message);
-              target = sender
-            } else {
-              this.the_msg[receiver].push(sender, message);
-              target = receiver
-            }
-            let sign = true
-            for (let elem of this.the_hot) {
-              if (elem == target) {
-                sign = false
-              }
-            }
-            if (sign){
-              this.the_hot.push(target)
-              this.the_hot.pop()
-            }
-            break;
-          case "image":
-            this.the_img[this.feedback.Image] = `http://${this.feedback.Message}/${this.feedback.Image}`;
-            break;
-          case "group":
-            this.the_frd[this.feedback.Message] = this.feedback.Sender
-            break
-          case "config":
-            if (this.self.ID == "" || this.feedback.Sender == this.self.ID) {
-              this.self.ID = this.feedback.Sender
-              this.self.Name = this.feedback.Message
-              this.self.IconID = this.feedback.Image
-            } else {
-              this.the_sgn[this.feedback.Sender].ID = this.feedback.Sender
-              this.the_sgn[this.feedback.Sender].Name = this.feedback.Message
-              this.the_sgn[this.feedback.Sender].IconID = this.feedback.Image
-            }
-        }
-        this.onLoginSuccessCallbacks = []
-        if (this.feedback.Timestamp) {
-          this.timestamp = this.feedback.Timestamp;
-        }
+          }
+          if (sign) {
+            this.the_hot.push(target)
+            this.the_hot.pop()
+          }
+          break;
+        case "image":
+          this.the_img[this.feedback.Image] = `http://${this.feedback.Message}/${this.feedback.Image}`;
+          break;
+        case "group":
+          this.the_frd[this.feedback.Message] = this.feedback.Sender
+          break
+        case "config":
+          if (this.self.ID == "" || this.feedback.Sender == this.self.ID) {
+            this.self.ID = this.feedback.Sender
+            this.self.Name = this.feedback.Message
+            this.self.IconID = this.feedback.Image
+          }
+          else {
+            this.the_sgn[this.feedback.Sender].ID = this.feedback.Sender
+            this.the_sgn[this.feedback.Sender].Name = this.feedback.Message
+            this.the_sgn[this.feedback.Sender].IconID = this.feedback.Image
+          }
+      }
+      this.onLoginSuccessCallbacks = []
+      if (this.feedback.Timestamp) {
+        this.timestamp = this.feedback.Timestamp;
+      }
 
-        void this.try_sync();
-      });
+      void this.try_sync();
+    });
 
-    } catch (error) {
-      console.error("初始化失败", error);
-    }
   }
 
   async change(): Promise<void> {

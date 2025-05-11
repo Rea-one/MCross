@@ -64,7 +64,8 @@ export struct RegPage
             if (!this.reject)
             {
               this.password = this.cpassword;
-              this.nets.send(this.m.register(this.account, this.password))
+              this.nets.send(this.m.register(this.account, this.password));
+              this.pageStack.pushPathByName("rag", "")
               this.password = ''
               this.cpassword = ''
             }

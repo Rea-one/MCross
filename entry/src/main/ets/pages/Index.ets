@@ -59,7 +59,7 @@ struct Index
           .onClick(() =>
           {
             this.link.connect()
-            this.pageStack.pushPathByName('ralPage', '')
+            this.pageStack.pushPathByName('ral', '')
           })
       }
 

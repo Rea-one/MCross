@@ -19,6 +19,8 @@ export struct Yours {
 
   @State unfold: Map<string, [boolean]> = new Map<string, [boolean]>()
 
+  @State addFriend: boolean = false
+
   private context = this.getUIContext().getHostContext() as common.UIAbilityContext
 
   aboutToAppear(): void {
@@ -82,8 +84,56 @@ export struct Yours {
       .tabBar("联系人")
       TabContent(){
         Column(){
-          Button("添加好友")
-          Button("设置")
+          Row(){
+            Text("昵称")
+            Text(this.waiter.self.Name)
+          }
+          Row(){
+            Text("账号")
+            Text(this.waiter.self.ID)
+          }
+          Row() {
+            Button()
+            List() {
+              if (this.addFriend) {
+
+                ForEach(this.waiter.the_frq, (val: string) => {
+                  ListItem() {
+                    Row() {
+                      Image(this.waiter.the_img[this.waiter.the_sgn[val].IconID])
+                      Text(this.waiter.the_sgn[val].Name)
+                      Button("同意")
+                        .onClick(() => {
+
+                        })
+                      Button("拒绝")
+                        .onClick(() => {
+
+                        })
+                    }
+                  }
+                })
+              }
+            }
+          }
+          Row(){
+            Button("修改密码")
+              .onClick(() => {
+                this.pageStack.pushPathByName("reset password","")
+              })
+          }
+          Row(){
+            Button("修改昵称")
+              .onClick(() => {
+                this.pageStack.pushPathByName("reset Name", "")
+              })
+          }
+          Row(){
+            Button("修改头像")
+              .onClick(() => {
+
+              })
+          }
         }
       }
       .tabBar("更多")
