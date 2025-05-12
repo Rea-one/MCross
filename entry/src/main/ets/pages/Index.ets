@@ -1,3 +1,4 @@
+// Index.ets
 import { RegANDLog } from './ralpage'
 import { RegPage } from './register'
 import { WaitPage } from './wait'
@@ -24,7 +25,7 @@ struct Index
     kvStoreType: distributedKVStore.KVStoreType.DEVICE_COLLABORATION,
     securityLevel: distributedKVStore.SecurityLevel.S3
   }
-  link: Linker = new Linker()
+  @Provide('link') link: Linker = new Linker()
   @Provide('nets') nets: NetworkService = new NetworkService(this.link)
   @Provide('waiter') waiter: Waiter = new Waiter()
 

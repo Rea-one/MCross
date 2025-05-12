@@ -1,4 +1,4 @@
-
+// ralpage.ets
 import {Linker} from './linker'
 import { promptAction } from '@kit.ArkUI';
 import { socket } from '@kit.NetworkKit';
@@ -7,7 +7,8 @@ import { NetworkService, Waiter } from './manager';
 @Component
 export struct RegANDLog {
 
-  @Consume('pageStack') PageStack: NavPathStack;
+  @Consume('pageStack') PageStack: NavPathStack
+  @Consume('link') link: Linker
   @Consume('nets') nets: NetworkService
   @Consume('waiter') waiter: Waiter
 
@@ -42,10 +43,8 @@ export struct RegANDLog {
 
           Button('登录')
             .onClick(() => {
-              this.waiter.onLoginSuccess(() => {
-                this.PageStack.pushPathByName("yours", "")
-              })
-              this.nets.send(`a ${this.account} pw ${this.password} t lg`)
+              let message: string = `a ${this.account} pw ${this.password} t lg`
+              this.link.void_send(message);
             });
         }
       }

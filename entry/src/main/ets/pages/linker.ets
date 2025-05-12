@@ -2,8 +2,13 @@ import { socket } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 
+class SocketInfo {
+  message: ArrayBuffer = new ArrayBuffer(1);
+  remoteInfo: socket.SocketRemoteInfo = {} as socket.SocketRemoteInfo;
+}
+
 export class Linker {
-  link: socket.TCPSocket = socket.constructTCPSocketInstance();
+  net: socket.TCPSocket = socket.constructTCPSocketInstance();
   address: socket.NetAddress = {} as socket.NetAddress;
 
   init(){
@@ -15,21 +20,14 @@ export class Linker {
     let conn: socket.TCPConnectOptions = {} as socket.TCPConnectOptions
     conn.address = this.address
     conn.timeout = 9000
-    this.link.connect(conn)
+    this.net.connect(conn)
   }
 
-
-  send(value: string){
-    let current_mess: socket.TCPSendOptions = {
-      data: value
-    }
-    this.link.send(current_mess)
-  }
   void_send(value: string) {
     let current_mess: socket.TCPSendOptions = {
       data: value
     }
-    this.link.send(current_mess)
+    this.net.send(current_mess)
   }
 }
 

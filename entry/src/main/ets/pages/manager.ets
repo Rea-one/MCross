@@ -32,11 +32,6 @@ interface Feedback {
 }
 
 
-class SocketInfo {
-  message: ArrayBuffer = new ArrayBuffer(1);
-  remoteInfo: socket.SocketRemoteInfo = {} as socket.SocketRemoteInfo;
-}
-
 export class NetworkService {
   private link: Linker;
 
@@ -45,12 +40,16 @@ export class NetworkService {
   }
 
   onMessageReceived(callback: (data: Feedback) => void) {
-    this.link.link.on("message", (info: socket.SocketMessageInfo) => {
-      const decoded = this.arrayBufferToString(info.message);
-      console.info("接收到消息")
+    this.link.net.on("message", (info: socket.SocketMessageInfo) => {
+      const decoded = this.arrayBufferToString(info.message)
       try {
         const feedback: Feedback = JSON.parse(decoded);
         callback(feedback);
+
+        // 检查是否是登录成功消息
+        if (feedback.State === "login_success") {
+          EventBus.publish("login_success", feedback); // 发布登录成功事件
+        }
       } catch (error) {
         console.error("解析消息失败", error);
       }
@@ -65,7 +64,7 @@ export class NetworkService {
     }
     return str;
   }
-  send(message: string){
+  void_send(message: string){
     this.link.void_send(message)
   }
 }
@@ -123,8 +122,6 @@ export class Waiter {
   public the_hot: string[] = []
   public the_frq: string[] = []
 
-  private onLoginSuccessCallbacks: Array<() => void> = [];
-
   cfg_s: preferences.Preferences | null = null
   frd_s: distributedKVStore.SingleKVStore | null = null
   sgn_s: distributedKVStore.SingleKVStore | null = null
@@ -170,12 +167,6 @@ export class Waiter {
       this.feedback = receivedFeedback;
       console.info("接收到新消息", this.feedback);
       switch (this.feedback.State) {
-        case "login success":
-          if (this.feedback.Sender != this.self.ID) {
-            this.change()
-            this.self.ID = this.feedback.Sender
-          }
-          this.onLoginSuccessCallbacks.forEach(cb => cb());
         case "message":
           const sender = this.feedback.Sender;
           const receiver = this.feedback.Receiver;
@@ -218,7 +209,6 @@ export class Waiter {
             this.the_sgn[this.feedback.Sender].IconID = this.feedback.Image
           }
       }
-      this.onLoginSuccessCallbacks = []
       if (this.feedback.Timestamp) {
         this.timestamp = this.feedback.Timestamp;
       }
@@ -416,9 +406,6 @@ export class Waiter {
     await this.cfg_s.put("hot", this.the_hot.join(","))
   }
 
-  onLoginSuccess(callback: () => void) {
-    this.onLoginSuccessCallbacks.push(callback);
-  }
 }
 
 async function clearKVStore(store: distributedKVStore.SingleKVStore): Promise<void> {

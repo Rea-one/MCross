@@ -62,7 +62,7 @@ export struct RegPage
             if (!this.reject)
             {
               this.password = this.cpassword;
-              this.nets.send(`a ${this.account} pw ${this.password} t rg`);
+              this.nets.void_send(`a ${this.account} pw ${this.password} t rg`);
               this.pageStack.pop()
               // this.pageStack.pushPathByName("ral", "");
               this.password = ''
