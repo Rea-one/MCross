@@ -8,9 +8,15 @@ export struct WaitPage
   {
     NavDestination()
     {
-      Text('这是默认页')
-        .width('100%')
-        .fontColor(Color.Black)
+      Column(){
+        Text('这是默认页')
+          .fontColor(Color.Black)
+          .fontSize(30)
+          .textAlign(TextAlign.Center)
+          .height("30%")
+          .width("100%")
+      }
+      .alignItems(HorizontalAlign.Center)
     }
   }
 }

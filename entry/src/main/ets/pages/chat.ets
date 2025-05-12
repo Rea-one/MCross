@@ -58,7 +58,7 @@ export struct ChatPage {
         Button("发送")
           .onClick(() => {
             if (this.self != null){
-              this.nets.send(`s ${this.self.ID} r ${this.chatTar} m ${this.message}`)
+              this.nets.send(`a ${this.self.ID} r ${this.chatTar} m ${this.message}`)
             }
             this.message = ""
           })

@@ -55,7 +55,7 @@ struct Index
         Text('这是导航页')
           .width('100%')
           .fontColor(Color.Black)
-        Button('test')
+        Button('开始')
           .onClick(() =>
           {
             this.link.connect()
@@ -66,7 +66,8 @@ struct Index
     }
     .title('导航')
     .navDestination(this.page_map)
+
     .width('100%')
-    .height('100%');
+    .height('100%')
   }
 }

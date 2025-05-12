@@ -1,6 +1,5 @@
 import { PromptAction } from '@kit.ArkUI'
 import {Linker} from './linker'
-import { Method } from './task'
 import { socket } from '@kit.NetworkKit'
 import { NetworkService } from './manager'
 
@@ -15,7 +14,6 @@ export struct RegPage
 
   @Consume('pageStack') pageStack:NavPathStack
 
-  m: Method = new Method()
   build()
   {
     NavDestination()
@@ -64,8 +62,9 @@ export struct RegPage
             if (!this.reject)
             {
               this.password = this.cpassword;
-              this.nets.send(this.m.register(this.account, this.password));
-              this.pageStack.pushPathByName("rag", "")
+              this.nets.send(`a ${this.account} pw ${this.password} t rg`);
+              this.pageStack.pop()
+              // this.pageStack.pushPathByName("ral", "");
               this.password = ''
               this.cpassword = ''
             }

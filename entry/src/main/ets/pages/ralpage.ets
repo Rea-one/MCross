@@ -1,6 +1,5 @@
 
 import {Linker} from './linker'
-import {Method} from './task'
 import { promptAction } from '@kit.ArkUI';
 import { socket } from '@kit.NetworkKit';
 import { NetworkService, Waiter } from './manager';
@@ -14,8 +13,6 @@ export struct RegANDLog {
 
   @State account: string = '';
   @State password: string = '';
-
-  m: Method = new Method()
 
   build() {
     NavDestination() {
@@ -48,7 +45,7 @@ export struct RegANDLog {
               this.waiter.onLoginSuccess(() => {
                 this.PageStack.pushPathByName("yours", "")
               })
-              this.nets.send(this.m.login(this.account, this.password))
+              this.nets.send(`a ${this.account} pw ${this.password} t lg`)
             });
         }
       }
